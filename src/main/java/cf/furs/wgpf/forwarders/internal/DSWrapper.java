@@ -5,6 +5,9 @@ import cf.furs.wgpf.forwarders.ForwarderUDP;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.util.Arrays;
+
+import static cf.furs.wgpf.forwarders.internal.Tools.bytesToHex;
 
 public class DSWrapper {
     public static final long IDLE_TIMEOUT_C = 60;
@@ -29,6 +32,10 @@ public class DSWrapper {
                     ds.receive(proxiedDP);
                     //System.out.println("Новый пакет для нашего DDS! - " + ds.getLocalAddress()+":"+ds.getLocalPort());
                     proxiedDP.setData(buffer, 0, proxiedDP.getLength());
+                    if(proxiedDP.getLength()==92) {
+                        // System.out.println("New Init Response packet for  - " + ds.getLocalAddress()+":"+ds.getLocalPort());
+                        ForwarderUDP.wgrpAnalyzer.addToQueue(new WGPacket(ds.getLocalAddress(),ds.getLocalPort(),Arrays.copyOf(buffer, proxiedDP.getLength())));
+                    }
                     proxiedDP.setAddress(getBindedRemoteIA());
                     proxiedDP.setPort(getBindedPort());
                     this.serverDS.send(proxiedDP);

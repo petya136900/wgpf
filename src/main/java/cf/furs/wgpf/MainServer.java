@@ -10,8 +10,8 @@ public class MainServer {
 
         //  new ForwarderTCPServer(12345, "192.168.51.65", 3389)
         //    .startThread();
-        //  new ForwarderUDPServer(12345, "192.168.51.65", 3389)
-        //      .startThread();
+        new ForwarderUDP(12345, "***REMOVED***", 12345, 2)
+            .startThread();
 
         if (args.length < 4 || args[0].equals("--help")) {
             System.out.println("Usage:");
