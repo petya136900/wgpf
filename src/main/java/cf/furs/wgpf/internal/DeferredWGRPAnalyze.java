@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-import static cf.furs.wgpf.forwarders.internal.Tools.bytesToHex;
+import java.util.stream.Collectors;
 import static cf.furs.wgpf.wg.Blake2sExample.blake2s128;
 import static cf.furs.wgpf.wg.Blake2sExample.blake2s256;
 
@@ -28,16 +28,16 @@ public class DeferredWGRPAnalyze {
     private static final byte[] LABEL = "mac1----".getBytes();
 
     // Метод для загрузки публичных ключей из файла
-    private void loadPeerPublicKeys() throws IOException, FileNotFoundException {
+    private void loadPeerPublicKeys() throws IOException {
         File publicKeyFile = new File("public_keys.txt");
-        // System.out.println("publicKeyFile: " + publicKeyFile.getAbsolutePath());
         if (!publicKeyFile.exists()) {
-            throw new FileNotFoundException("Файл public_keys.txt не найден в текущей директории");
+            throw new FileNotFoundException("The public_keys.txt file is not found in the current directory");
         }
         try (BufferedReader reader = new BufferedReader(new FileReader(publicKeyFile))) {
-            peerPublicKeys = reader.lines().toList();
+            peerPublicKeys = reader.lines().collect(Collectors.toList());
         }
     }
+
 
     public void addToQueue(WGPacket wgPacket) {
         long key = System.currentTimeMillis();
