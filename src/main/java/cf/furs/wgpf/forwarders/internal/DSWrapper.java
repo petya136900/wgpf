@@ -7,8 +7,6 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.util.Arrays;
 
-import static cf.furs.wgpf.forwarders.internal.Tools.bytesToHex;
-
 public class DSWrapper {
     public static final long IDLE_TIMEOUT_C = 60;
     private final DatagramSocket serverDS;
@@ -34,7 +32,7 @@ public class DSWrapper {
                     proxiedDP.setData(buffer, 0, proxiedDP.getLength());
                     if(proxiedDP.getLength()==92) {
                         // System.out.println("New Init Response packet for  - " + ds.getLocalAddress()+":"+ds.getLocalPort());
-                        ForwarderUDP.wgrpAnalyzer.addToQueue(new WGPacket(ds.getLocalAddress(),ds.getLocalPort(),Arrays.copyOf(buffer, proxiedDP.getLength())));
+                        ForwarderUDP.wgrpAnalyzer.addToQueue(new WGPacket(bindedRemoteIA,bindedPort,Arrays.copyOf(buffer, proxiedDP.getLength())));
                     }
                     proxiedDP.setAddress(getBindedRemoteIA());
                     proxiedDP.setPort(getBindedPort());
