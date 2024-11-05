@@ -1,5 +1,6 @@
 package cf.furs.wgpf;
 
+import cf.furs.wgpf.internal.DeferredWGRPAnalyze;
 import cf.furs.wgpf.packets.AbstractPacket;
 import cf.furs.wgpf.packets.HelloPacket;
 import cf.furs.wgpf.packets.HelloResponse;
@@ -15,13 +16,14 @@ public class OriginUDPServer {
     private int listPort;
     private DatagramSocket serverDatagramSocket;
     boolean serverIsActive = false;
+
     public static void main(String[] args) throws IOException {
         OriginUDPServer originUDPServer = new OriginUDPServer();
         originUDPServer.start(1234);
     }
 
     private static final int PACKET_SIZE = 1024;
-    private void start(int listPort) throws IOException {
+    private synchronized void start(int listPort) throws IOException {
         this.listPort = listPort;
         this.serverDatagramSocket = new DatagramSocket(this.listPort);
         this.serverIsActive = true;
