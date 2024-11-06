@@ -110,7 +110,7 @@ public class DeferredWGRPAnalyze {
             if (checkMac(mac1, publicKey, Arrays.copyOfRange(packet, 0, 60))) {
                 String uniqString = publicKey+"_"+wgPacket.getAddress().getHostAddress();
                 boolean isUniq = (uniqPeers.putIfAbsent(uniqString, true) == null);
-                logPeer(publicKey, wgPacket, isUniq, uniqString);
+                logPeer(publicKey, wgPacket, isUniq);
                 return true;
             }
         }
@@ -128,7 +128,7 @@ public class DeferredWGRPAnalyze {
         return Arrays.equals(mac1, MAC1Response);
     }
 
-    private void logPeer(String publicKey, WGPacket wgPacket, boolean isUniq, String uniqString) {
+    private void logPeer(String publicKey, WGPacket wgPacket, boolean isUniq) {
         try {
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(logFile, true))) {
                 String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
@@ -136,7 +136,7 @@ public class DeferredWGRPAnalyze {
                         timestamp,
                         publicKey,
                         wgPacket.getAddress().getHostAddress(),
-                        wgPacket.getPort(),(isUniq?" - NEW UNIQ CONN["+getAndInc(uniqString)+"]":"")));
+                        wgPacket.getPort(),(isUniq?" - NEW UNIQ CONN["+getAndInc(publicKey)+"]":"")));
             }
         } catch (IOException e) {
             e.printStackTrace();
