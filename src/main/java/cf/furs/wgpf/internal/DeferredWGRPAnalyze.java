@@ -14,6 +14,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import static cf.furs.wgpf.wg.Blake2sExample.blake2s128;
 import static cf.furs.wgpf.wg.Blake2sExample.blake2s256;
@@ -21,6 +22,7 @@ import static cf.furs.wgpf.wg.Blake2sExample.blake2s256;
 public class DeferredWGRPAnalyze {
     private final LinkedBlockingQueue<WGPacket> uncheckedRawPackets = new LinkedBlockingQueue<>();
     private final ConcurrentHashMap<Long, WGPacket> rawPacketMap = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, AtomicInteger> uniqCounts = new ConcurrentHashMap<>();
     private volatile boolean running = false;
     private Thread analyzerThread;
     private List<String> peerPublicKeys;
@@ -108,7 +110,7 @@ public class DeferredWGRPAnalyze {
             if (checkMac(mac1, publicKey, Arrays.copyOfRange(packet, 0, 60))) {
                 String uniqString = publicKey+"_"+wgPacket.getAddress().getHostAddress();
                 boolean isUniq = (uniqPeers.putIfAbsent(uniqString, true) == null);
-                logPeer(publicKey, wgPacket, isUniq);
+                logPeer(publicKey, wgPacket, isUniq, uniqString);
                 return true;
             }
         }
@@ -126,15 +128,26 @@ public class DeferredWGRPAnalyze {
         return Arrays.equals(mac1, MAC1Response);
     }
 
-    private void logPeer(String publicKey, WGPacket wgPacket, boolean isUniq) {
+    private void logPeer(String publicKey, WGPacket wgPacket, boolean isUniq, String uniqString) {
         try {
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(logFile, true))) {
                 String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
-                writer.write(String.format("[%s] PublicKey %s - %s:%d%s%n", timestamp, publicKey, wgPacket.getAddress().getHostAddress(),wgPacket.getPort(),(isUniq?" - NEW UNIQ CONN":"")));
+                writer.write(String.format("[%s] PublicKey %s - %s:%d%s%n",
+                        timestamp,
+                        publicKey,
+                        wgPacket.getAddress().getHostAddress(),
+                        wgPacket.getPort(),(isUniq?" - NEW UNIQ CONN["+getAndInc(uniqString)+"]":"")));
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    private synchronized int getAndInc(String uniqString) {
+        AtomicInteger ai = uniqCounts.getOrDefault(uniqString, new AtomicInteger(0));
+        int tmpInt = ai.incrementAndGet();
+        uniqCounts.put(uniqString, ai);
+        return tmpInt;
     }
 
     public static void main(String[] args) throws IOException {
