@@ -113,13 +113,16 @@ public class DeferredWGRPAnalyze {
         byte[] mac1 = Arrays.copyOfRange(packet, 60, 76);
 
         for (String publicKey : peerPublicKeys) {
+            String uniqString = publicKey+"_"+wgPacket.getAddress().getHostAddress();
+            boolean isUniq = (uniqPeers.putIfAbsent(uniqString, true) == null);
             if (checkMac(mac1, publicKey, Arrays.copyOfRange(packet, 0, 60))) {
-                String uniqString = publicKey+"_"+wgPacket.getAddress().getHostAddress();
-                boolean isUniq = (uniqPeers.putIfAbsent(uniqString, true) == null);
                 logPeer(publicKey, wgPacket, isUniq);
                 return true;
             }
         }
+        String uniqString = "Unknown"+"_"+wgPacket.getAddress().getHostAddress();
+        boolean isUniq = (uniqPeers.putIfAbsent(uniqString, true) == null);
+        logUnknownPeer("Unknown", wgPacket, isUniq);
         return false;
     }
 
@@ -139,6 +142,21 @@ public class DeferredWGRPAnalyze {
     }
 
     private void logPeer(String publicKey, WGPacket wgPacket, boolean isUniq) {
+        try {
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(logFile, true))) {
+                String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
+                writer.write(String.format("[%s] PublicKey %s - %s:%d%s%n",
+                        timestamp,
+                        publicKey,
+                        wgPacket.getAddress().getHostAddress(),
+                        wgPacket.getPort(),(isUniq?" - NEW UNIQ CONN["+getAndInc(publicKey)+"]":"")));
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void logUnknownPeer(String publicKey, WGPacket wgPacket, boolean isUniq) {
         try {
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(logFile, true))) {
                 String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
