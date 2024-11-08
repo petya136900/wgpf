@@ -1,7 +1,9 @@
 package cf.furs.wgpf.forwarders;
 
 import cf.furs.wgpf.forwarders.internal.DSWrapper;
+import cf.furs.wgpf.internal.CoCoder;
 import cf.furs.wgpf.internal.DeferredWGRPAnalyze;
+import cf.furs.wgpf.internal.MagicFunction;
 
 import java.net.*;
 import java.util.Arrays;
@@ -16,11 +18,21 @@ public class ForwarderUDP extends AbstractForwarder {
 
     public static DeferredWGRPAnalyze wgrpAnalyzer = null;
 
-    public ForwarderUDP(Integer listPort, String destHost, Integer destPort, int forwarderType) throws UnknownHostException {
-        super(listPort, destHost, destPort, forwarderType);
+    private int clientShift;
+    private final int serverShift;
+
+    private final MagicFunction magicFunction;
+
+    public ForwarderUDP(Integer listPort, String destHost, Integer destPort, int magicType, int clientShift, int serverShift) throws UnknownHostException {
+        super(listPort, destHost, destPort, magicType);
+        this.magicFunction = CoCoder.getMagicFunc(this.getForwarderType());
+        this.clientShift = clientShift;
+        this.serverShift = serverShift;
     }
     @Override
     public void startThread() {
+        if(this.magicFunction==null)
+            this.clientShift=0;
         new Thread(()->{
             try {
                 this.serverDS = new DatagramSocket(this.getListPort());
@@ -50,8 +62,11 @@ public class ForwarderUDP extends AbstractForwarder {
                     DatagramPacket proxiedDP  = new DatagramPacket(buffer, buffer.length);
                     serverDS.receive(proxiedDP);
                     // System.out.println("Новый пакет от "+proxiedDP.getAddress()+":"+proxiedDP.getPort());
-                    DSWrapper dsWrapper = getDestDS(proxiedDP);
-                    proxiedDP.setData(buffer,0,proxiedDP.getLength());
+                    DSWrapper dsWrapper = getDestDS(proxiedDP, this.magicFunction, this.serverShift);
+                    if(this.clientShift!=0) {
+                        this.magicFunction.magic(buffer,proxiedDP.getLength(),this.clientShift);
+                    }
+                    // proxiedDP.setData(buffer,0,proxiedDP.getLength());
                     proxiedDP.setAddress(getResolvedAddress());
                     proxiedDP.setPort(getDestPort());
                     dsWrapper.getDs().send(proxiedDP);
@@ -59,20 +74,22 @@ public class ForwarderUDP extends AbstractForwarder {
                 }
             } catch (Exception e) {
                 setActive(false);
-                System.err.println("Common DS-ACCEPTOR In err");
+                System.err.println("Common DS-ACCEPTOR In err: " + e.getLocalizedMessage());
                 e.printStackTrace();
             }
         },"DS-ACCEPTOR").start();
     }
 
     //synchronized private DSWrapper getDestDS(SocketAddress sa, InetAddress originAddress, int originPort) throws SocketException {
-    synchronized private DSWrapper getDestDS(DatagramPacket dp) throws SocketException {
+    synchronized private DSWrapper getDestDS(DatagramPacket dp, MagicFunction magicFunction, int serverShift) throws SocketException {
         Integer hash = calculateHash(dp.getAddress(),dp.getPort());
 
         DSWrapper dds = dsBinds.get(hash);
         if(dds == null) {
             // System.out.println("DDS создан "+dp.getAddress()+":"+dp.getPort());
             dds = new DSWrapper(new DatagramSocket(), serverDS, dp.getAddress(), dp.getPort());
+            dds.setMagicFunction(magicFunction);
+            dds.setServerShift(serverShift);
             dsBinds.put(hash,dds);
         }
         dds.makeActive();
@@ -80,9 +97,9 @@ public class ForwarderUDP extends AbstractForwarder {
         return dds;
     }
     private int calculateHash(InetAddress address, int port) {
-        int hash = Objects.hash(Arrays.hashCode(address.getAddress()), port);
+        // int hash = Objects.hash(Arrays.hashCode(address.getAddress()), port);
         // System.out.println("HASH FOR "+address+":"+port+" - "+hash);
-        return hash;
+        return Objects.hash(Arrays.hashCode(address.getAddress()), port);
     }
 
     private void idleInspect(Integer hashKey, DSWrapper dsWrapper) {

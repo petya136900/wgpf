@@ -16,7 +16,7 @@ public class MainServer {
         if (args.length < 4 || args[0].equals("--help")) {
             System.out.println("Usage:");
             System.out.println("For TCP: java -jar my.jar tcp <listenPort> <destHost> <destPort> [forwarderType]");
-            System.out.println("For UDP: java -jar my.jar udp <listenPort> <destHost> <destPort> [forwarderType]");
+            System.out.println("For UDP: java -jar my.jar udp <listenPort> <destHost> <destPort> [magic-type] [client-shift] [server-shift]");
             return;
         }
 
@@ -28,7 +28,9 @@ public class MainServer {
         if (protocol.equalsIgnoreCase("tcp")) {
             new ForwarderTCP(listenPort, destHost, destPort, forwarderType).startThread();
         } else if (protocol.equalsIgnoreCase("udp")) {
-            new ForwarderUDP(listenPort, destHost, destPort, forwarderType).startThread();
+            int clientShift = args.length > 4 ? Integer.parseInt(args[5]) : 0;
+            int serverShift = args.length > 4 ? Integer.parseInt(args[6]) : 1;
+            new ForwarderUDP(listenPort, destHost, destPort, forwarderType,clientShift,serverShift).startThread();
         } else {
             System.out.println("Invalid protocol. Please use 'tcp' or 'udp'.");
         }

@@ -1,7 +1,5 @@
 package cf.furs.wgpf.wg;
 
-import org.jetbrains.annotations.Nullable;
-
 import java.util.Arrays;
 
 public class Blake2s {
@@ -30,7 +28,7 @@ public class Blake2s {
     private byte[] x;
     private byte[] result;
 
-    public Blake2s(Integer digestLength, @Nullable byte[] key) {
+    public Blake2s(Integer digestLength, byte[] key) {
         if (digestLength == null) {
             digestLength = MAX_DIGEST_LENGTH;
         }

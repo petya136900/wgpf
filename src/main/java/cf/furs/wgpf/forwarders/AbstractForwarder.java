@@ -4,9 +4,9 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 
 public abstract class AbstractForwarder {
-    private Integer listPort;
-    private String destHost;
-    private Integer destPort;
+    private final Integer listPort;
+    private final String destHost;
+    private final Integer destPort;
     private Thread serverThread;
     private Boolean isActive = false;
     private Integer forwarderType;
