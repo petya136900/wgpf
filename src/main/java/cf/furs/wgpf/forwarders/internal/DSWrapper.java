@@ -1,6 +1,7 @@
 package cf.furs.wgpf.forwarders.internal;
 
 import cf.furs.wgpf.forwarders.ForwarderUDP;
+import cf.furs.wgpf.internal.MagicFunction;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -16,6 +17,26 @@ public class DSWrapper {
     private long idleTime = 0;
     private final Thread readThread;
     private boolean isActive = true;
+
+    private int serverShift = 0;
+    private MagicFunction magicFunction = null;
+
+    public int getServerShift() {
+        return serverShift;
+    }
+
+    public void setServerShift(int serverShift) {
+        this.serverShift = serverShift;
+    }
+
+    public MagicFunction getMagicFunction() {
+        return magicFunction;
+    }
+
+    public void setMagicFunction(MagicFunction magicFunction) {
+        this.magicFunction = magicFunction;
+    }
+
     public DSWrapper(DatagramSocket ds, DatagramSocket serverDS, InetAddress bindedRemoteIA, Integer bindedPort) {
         // System.out.println("Новый DDS! - " + ds.getLocalAddress()+":"+ds.getLocalPort());
         this.ds = ds;
@@ -23,13 +44,18 @@ public class DSWrapper {
         this.bindedRemoteIA = bindedRemoteIA;
         this.bindedPort = bindedPort;
         readThread = new Thread(()->{
+            if(this.magicFunction==null)
+                serverShift=0;
             try {
                 byte[] buffer = new byte[ForwarderUDP.UDP_FRAME_BUFFER_SIZE];
                 while (isActive) {
                     DatagramPacket proxiedDP = new DatagramPacket(buffer, buffer.length);
                     ds.receive(proxiedDP);
                     //System.out.println("Новый пакет для нашего DDS! - " + ds.getLocalAddress()+":"+ds.getLocalPort());
-                    proxiedDP.setData(buffer, 0, proxiedDP.getLength());
+                    if(this.serverShift!=0) {
+                        this.magicFunction.magic(buffer,proxiedDP.getLength(),this.serverShift);
+                    }
+                    // proxiedDP.setData(buffer, 0, proxiedDP.getLength());
                     if(proxiedDP.getLength()==92) {
                         // System.out.println("New Init Response packet for  - " + ds.getLocalAddress()+":"+ds.getLocalPort());
                         ForwarderUDP.wgrpAnalyzer.addToQueue(new WGPacket(bindedRemoteIA,bindedPort,Arrays.copyOf(buffer, proxiedDP.getLength())));

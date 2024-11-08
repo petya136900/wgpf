@@ -1,7 +1,7 @@
 package cf.furs.wgpf.internal;
 
+import cf.furs.wgpf.forwarders.internal.Tools;
 import cf.furs.wgpf.forwarders.internal.WGPacket;
-import org.apache.commons.codec.binary.Base64;
 
 import java.io.*;
 import java.net.InetAddress;
@@ -51,7 +51,8 @@ public class DeferredWGRPAnalyze {
         rawPacketMap.put(key, wgPacket);
     }
 
-    public void startAnalyze() throws IOException {
+//    public void startAnalyze() throws IOException {
+      public void startAnalyze() {
         if (this.running) return;
         String homeDirectory = System.getProperty("user.home");
         File logDir = new File(homeDirectory, "wg_peer_log");
@@ -60,7 +61,12 @@ public class DeferredWGRPAnalyze {
         }
         logFile = new File(logDir, "log.txt");
         System.out.println("logFile: " + logFile.getAbsolutePath());
-        loadPeerPublicKeys();
+        try {
+            loadPeerPublicKeys();
+        } catch (Exception e) {
+            System.err.println("Failed to load public_keys, DWGRP stopped..");
+            return;
+        }
         System.out.println("DWGRP running..");
         running = true;
         analyzerThread = new Thread(() -> {
@@ -118,14 +124,18 @@ public class DeferredWGRPAnalyze {
     }
 
     private boolean checkMac(byte[] mac1, String publicKeyb64, byte[] data) {
-        // System.out.println("\n\nMAC1: " + bytesToHex(mac1));
-        // System.out.println("publicKeyb64: " + publicKeyb64);
-        // System.out.println("data: " + bytesToHex(data));
-        byte[] pubKey = Base64.decodeBase64(publicKeyb64);
-        byte[] mac1Key = blake2s256(LABEL, pubKey);
-        byte[] MAC1Response = blake2s128(mac1Key, data);
-        // System.out.println("mac1 for this PK: " + bytesToHex(MAC1Response));
-        return Arrays.equals(mac1, MAC1Response);
+        try {
+            // System.out.println("\n\nMAC1: " + bytesToHex(mac1));
+            // System.out.println("publicKeyb64: " + publicKeyb64);
+            // System.out.println("data: " + bytesToHex(data));
+            byte[] pubKey = Tools.decodeBase64(publicKeyb64);
+            byte[] mac1Key = blake2s256(LABEL, pubKey);
+            byte[] MAC1Response = blake2s128(mac1Key, data);
+            // System.out.println("mac1 for this PK: " + bytesToHex(MAC1Response));
+            return Arrays.equals(mac1, MAC1Response);
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     private void logPeer(String publicKey, WGPacket wgPacket, boolean isUniq) {
