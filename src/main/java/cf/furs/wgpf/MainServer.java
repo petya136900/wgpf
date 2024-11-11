@@ -29,7 +29,7 @@ public class MainServer {
             new ForwarderTCP(listenPort, destHost, destPort, forwarderType).startThread();
         } else if (protocol.equalsIgnoreCase("udp")) {
             int clientShift = args.length > 4 ? Integer.parseInt(args[5]) : 0;
-            int serverShift = args.length > 4 ? Integer.parseInt(args[6]) : 1;
+            int serverShift = args.length > 4 ? Integer.parseInt(args[6]) : 0;
             new ForwarderUDP(listenPort, destHost, destPort, forwarderType,clientShift,serverShift).startThread();
         } else {
             System.out.println("Invalid protocol. Please use 'tcp' or 'udp'.");

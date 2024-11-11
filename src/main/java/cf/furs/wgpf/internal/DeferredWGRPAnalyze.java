@@ -116,13 +116,13 @@ public class DeferredWGRPAnalyze {
             String uniqString = publicKey+"_"+wgPacket.getAddress().getHostAddress();
             boolean isUniq = (uniqPeers.putIfAbsent(uniqString, true) == null);
             if (checkMac(mac1, publicKey, Arrays.copyOfRange(packet, 0, 60))) {
-                logPeer(publicKey, wgPacket, isUniq);
+                logPeer(publicKey, wgPacket, isUniq, wgPacket.getDestHost(), wgPacket.getDestPort());
                 return true;
             }
         }
         String uniqString = "Unknown"+"_"+wgPacket.getAddress().getHostAddress();
         boolean isUniq = (uniqPeers.putIfAbsent(uniqString, true) == null);
-        logUnknownPeer("Unknown", wgPacket, isUniq);
+        logUnknownPeer("Unknown", wgPacket, isUniq, wgPacket.getDestHost(), wgPacket.getDestPort());
         return false;
     }
 
@@ -141,11 +141,13 @@ public class DeferredWGRPAnalyze {
         }
     }
 
-    private void logPeer(String publicKey, WGPacket wgPacket, boolean isUniq) {
+    private void logPeer(String publicKey, WGPacket wgPacket, boolean isUniq, String destHost, int destPort) {
         try {
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(logFile, true))) {
                 String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
-                writer.write(String.format("[%s] PublicKey %s - %s:%d%s%n",
+                writer.write(String.format("[TO %s:%d] | [%s] PublicKey %s - %s:%d%s%n",
+                        destHost,
+                        destPort,
                         timestamp,
                         publicKey,
                         wgPacket.getAddress().getHostAddress(),
@@ -156,11 +158,13 @@ public class DeferredWGRPAnalyze {
         }
     }
 
-    private void logUnknownPeer(String publicKey, WGPacket wgPacket, boolean isUniq) {
+    private void logUnknownPeer(String publicKey, WGPacket wgPacket, boolean isUniq, String destHost, int destPort) {
         try {
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(logFile, true))) {
                 String timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
-                writer.write(String.format("[%s] PublicKey %s - %s:%d%s%n",
+                writer.write(String.format("[TO %s:%d] | [%s] PublicKey %s - %s:%d%s%n",
+                        destHost,
+                        destPort,
                         timestamp,
                         publicKey,
                         wgPacket.getAddress().getHostAddress(),
