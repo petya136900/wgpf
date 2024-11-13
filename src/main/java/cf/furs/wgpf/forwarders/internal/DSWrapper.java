@@ -18,6 +18,25 @@ public class DSWrapper {
     private final Thread readThread;
     private boolean isActive = true;
 
+    private String destHost;
+    private int destPort;
+
+    public String getDestHost() {
+        return destHost;
+    }
+
+    public void setDestHost(String destHost) {
+        this.destHost = destHost;
+    }
+
+    public int getDestPort() {
+        return destPort;
+    }
+
+    public void setDestPort(int destPort) {
+        this.destPort = destPort;
+    }
+
     private int serverShift = 0;
     private MagicFunction magicFunction = null;
 
@@ -58,7 +77,15 @@ public class DSWrapper {
                     // proxiedDP.setData(buffer, 0, proxiedDP.getLength());
                     if(proxiedDP.getLength()==92) {
                         // System.out.println("New Init Response packet for  - " + ds.getLocalAddress()+":"+ds.getLocalPort());
-                        ForwarderUDP.wgrpAnalyzer.addToQueue(new WGPacket(bindedRemoteIA,bindedPort,Arrays.copyOf(buffer, proxiedDP.getLength())));
+                        ForwarderUDP.wgrpAnalyzer.addToQueue(
+                                new WGPacket(
+                                        bindedRemoteIA,
+                                        bindedPort,
+                                        Arrays.copyOf(buffer, proxiedDP.getLength()))
+                                            .setDestHost(
+                                                    this.getDestHost()).
+                                            setDestPort(
+                                                    this.getDestPort()));
                     }
                     proxiedDP.setAddress(getBindedRemoteIA());
                     proxiedDP.setPort(getBindedPort());

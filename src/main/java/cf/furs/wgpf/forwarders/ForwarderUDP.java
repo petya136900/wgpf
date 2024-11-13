@@ -62,7 +62,7 @@ public class ForwarderUDP extends AbstractForwarder {
                     DatagramPacket proxiedDP  = new DatagramPacket(buffer, buffer.length);
                     serverDS.receive(proxiedDP);
                     // System.out.println("Новый пакет от "+proxiedDP.getAddress()+":"+proxiedDP.getPort());
-                    DSWrapper dsWrapper = getDestDS(proxiedDP, this.magicFunction, this.serverShift);
+                    DSWrapper dsWrapper = getDestDS(proxiedDP, this.getDestHost(), this.getDestPort(), this.magicFunction, this.serverShift);
                     if(this.clientShift!=0) {
                         this.magicFunction.magic(buffer,proxiedDP.getLength(),this.clientShift);
                     }
@@ -81,7 +81,7 @@ public class ForwarderUDP extends AbstractForwarder {
     }
 
     //synchronized private DSWrapper getDestDS(SocketAddress sa, InetAddress originAddress, int originPort) throws SocketException {
-    synchronized private DSWrapper getDestDS(DatagramPacket dp, MagicFunction magicFunction, int serverShift) throws SocketException {
+    synchronized private DSWrapper getDestDS(DatagramPacket dp, String destHost, int destPort, MagicFunction magicFunction, int serverShift) throws SocketException {
         Integer hash = calculateHash(dp.getAddress(),dp.getPort());
 
         DSWrapper dds = dsBinds.get(hash);
@@ -90,6 +90,8 @@ public class ForwarderUDP extends AbstractForwarder {
             dds = new DSWrapper(new DatagramSocket(), serverDS, dp.getAddress(), dp.getPort());
             dds.setMagicFunction(magicFunction);
             dds.setServerShift(serverShift);
+            dds.setDestHost(destHost);
+            dds.setDestPort(destPort);
             dsBinds.put(hash,dds);
         }
         dds.makeActive();

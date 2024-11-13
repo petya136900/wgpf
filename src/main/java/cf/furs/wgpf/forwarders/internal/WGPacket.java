@@ -7,6 +7,27 @@ public class WGPacket {
     private int port;
     private byte[] data;
 
+    private String destHost;
+    private int destPort;
+
+    public String getDestHost() {
+        return destHost;
+    }
+
+    public WGPacket setDestHost(String destHost) {
+        this.destHost = destHost;
+        return this;
+    }
+
+    public int getDestPort() {
+        return destPort;
+    }
+
+    public WGPacket setDestPort(int destPort) {
+        this.destPort = destPort;
+        return this;
+    }
+
     public WGPacket(InetAddress address, int port, byte[] data) {
         this.address = address;
         this.port = port;
