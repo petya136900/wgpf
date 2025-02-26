@@ -8,15 +8,24 @@ import cf.furs.wgpf.internal.MagicFunction;
 import java.net.*;
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 
 public class ForwarderUDP extends AbstractForwarder {
     public static final int UDP_FRAME_BUFFER_SIZE = 64 * 1024;
     private DatagramSocket serverDS;
     private final ConcurrentHashMap<Integer, DSWrapper> dsBinds = new ConcurrentHashMap<>();
-    private final static long WATCHDOG_ITER_DELAY_MS = 1_000;
+    private final static long WATCHDOG_ITER_DELAY_MS = 15 * 1_000;
+
+    // private final static int BUFFER_POOL_SIZE = 1024;
+    private final static int BUFFER_POOL_SIZE = 4;
 
     public static DeferredWGRPAnalyze wgrpAnalyzer = null;
+
+    // private final int CORE_POOL_SIZE = 64; // min threads
+    private final int CORE_POOL_SIZE = BUFFER_POOL_SIZE; // min threads
+    // private final int MAXIMUM_POOL_SIZE = Integer.MAX_VALUE;
+    private final int MAXIMUM_POOL_SIZE = BUFFER_POOL_SIZE;
+    private final long KEEP_ALIVE_TIME = 60L; // threads ttl (s)
 
     private int clientShift;
     private final int serverShift;
@@ -35,6 +44,11 @@ public class ForwarderUDP extends AbstractForwarder {
             this.clientShift=0;
         new Thread(()->{
             try {
+                System.out.println("Init buffers..");
+                ArrayBlockingQueue<byte[]> bufferPool = new ArrayBlockingQueue<>(BUFFER_POOL_SIZE);
+                for (int i = 0; i < BUFFER_POOL_SIZE; i++) {
+                    bufferPool.add(new byte[UDP_FRAME_BUFFER_SIZE]); // Заполняем пул буферами
+                }
                 this.serverDS = new DatagramSocket(this.getListPort());
                 setActive(true);
                 System.out.println("UDP server is running on port "+getListPort()+" for "+this.getResolvedAddress()+":"+this.getDestPort());
@@ -57,20 +71,37 @@ public class ForwarderUDP extends AbstractForwarder {
                     }
                 },"DS-WATCHDOG").start();
 
-                byte[] buffer = new byte[UDP_FRAME_BUFFER_SIZE];
-                while(serverIsActive()) {
-                    DatagramPacket proxiedDP  = new DatagramPacket(buffer, buffer.length);
-                    serverDS.receive(proxiedDP);
+                ExecutorService executor = new ThreadPoolExecutor(
+                        CORE_POOL_SIZE,
+                        MAXIMUM_POOL_SIZE,
+                        KEEP_ALIVE_TIME,
+                        TimeUnit.SECONDS,
+                        new LinkedBlockingQueue<Runnable>()
+                );
+                // ExecutorService executor = Executors.newCachedThreadPool();
+
+                while (serverIsActive()) {
+                    byte[] packetBuffer = bufferPool.take();
+                    DatagramPacket proxiedDP = new DatagramPacket(packetBuffer, packetBuffer.length);
+                    serverDS.receive(proxiedDP); // Принимаем пакет
                     // System.out.println("Новый пакет от "+proxiedDP.getAddress()+":"+proxiedDP.getPort());
-                    DSWrapper dsWrapper = getDestDS(proxiedDP, this.getDestHost(), this.getDestPort(), this.magicFunction, this.serverShift);
-                    if(this.clientShift!=0) {
-                        this.magicFunction.magic(buffer,proxiedDP.getLength(),this.clientShift);
-                    }
-                    // proxiedDP.setData(buffer,0,proxiedDP.getLength());
-                    proxiedDP.setAddress(getResolvedAddress());
-                    proxiedDP.setPort(getDestPort());
-                    dsWrapper.getDs().send(proxiedDP);
-                    //System.out.println("Источник -> Отправлен DDS'у");
+                    executor.submit(() -> { // Передаем задачу в пул потоков
+                        try {
+                            DSWrapper dsWrapper = getDestDS(proxiedDP, this.getDestHost(), this.getDestPort(), this.magicFunction, this.serverShift);
+                            if (this.clientShift != 0) {
+                                this.magicFunction.magic(proxiedDP.getData(), proxiedDP.getLength(), this.clientShift);
+                            }
+                            // proxiedDP.setData(buffer,0,proxiedDP.getLength());
+                            proxiedDP.setAddress(getResolvedAddress());
+                            proxiedDP.setPort(getDestPort());
+                            dsWrapper.getDs().send(proxiedDP);
+                            //System.out.println("Источник -> Отправлен DDS'у");
+                        } catch (Exception e) {
+                            e.printStackTrace(); // Обрабатываем исключения
+                        } finally {
+                            bufferPool.offer(packetBuffer); // Возвращаем буфер в пул после использования
+                        }
+                    });
                 }
             } catch (Exception e) {
                 setActive(false);

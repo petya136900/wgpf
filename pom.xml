@@ -6,7 +6,7 @@
 
     <groupId>cf.furs</groupId>
     <artifactId>wgpf</artifactId>
-    <version>1.4-RELEASE-fix</version>
+    <version>1.5-RELEASE-fix</version>
 
     <build>
         <plugins>
