@@ -1,23 +1,29 @@
 package cf.furs.wgpf.forwarders;
 
 import cf.furs.wgpf.forwarders.internal.StreamThrough;
+import cf.furs.wgpf.forwarders.internal.ThreadPoolManager;
 
 import java.io.*;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ForwarderTCP extends AbstractForwarder {
     private static final int TCP_FRAME_BUFFER_SIZE = 4096 * 16;
     private ServerSocket serverSocket;
     private StreamThrough st = null;
+    ThreadPoolManager manager = null;
     public ForwarderTCP(Integer listPort, String destHost, Integer destPort, int forwarderType) throws UnknownHostException {
         super(listPort, destHost, destPort, forwarderType);
     }
     @Override
     public void startThread() {
+        manager = new ThreadPoolManager();
         new Thread(()->{
             try {
                 this.setActive(true);
@@ -101,29 +107,49 @@ public class ForwarderTCP extends AbstractForwarder {
 
                 while(this.serverIsActive()) {
                     Socket incomingSocket = serverSocket.accept();
-                    Socket destinationSocket = new Socket(getResolvedAddress(), getDestPort());
-                    new Thread(()->{
+                    manager.getAccepterPool().submit(() -> {
                         try {
-                            st.forwardStream(incomingSocket.getInputStream(),destinationSocket.getOutputStream());
-                        } catch (Exception e) {
-                            // System.err.println("Incoming Socket In err");
-                            try {incomingSocket.close();}catch (Exception ignored) {}
+                            final Socket destinationSocket = getNewDS(getResolvedAddress(), getDestPort());
+                            manager.getReaderPool().submit(() -> {
+                                try {
+                                    st.forwardStream(incomingSocket.getInputStream(),destinationSocket.getOutputStream());
+                                } catch (Exception e) {
+                                    // System.err.println("Incoming Socket In err");
+                                } finally {
+                                    try {
+                                        incomingSocket.close();
+                                    } catch (IOException ignored) {}
+                                }
+                            });
+                            manager.getWriterPool().submit(() -> {
+                                try {
+                                    st.forwardStream(destinationSocket.getInputStream(),incomingSocket.getOutputStream());
+                                } catch (Exception e) {
+                                    // System.err.println("Destination Socket In err");
+                                } finally {
+                                    try {
+                                        destinationSocket.close();
+                                    } catch (IOException ignored) {}
+                                }
+                            });
+                        } catch (Exception ignored) {
+                            try {
+                                incomingSocket.close();
+                            } catch (Exception ignored2) {}
                         }
-                    },"IN READ ["+incomingSocket.getRemoteSocketAddress()+"]").start();
-                    new Thread(()->{
-                        try {
-                            st.forwardStream(destinationSocket.getInputStream(),incomingSocket.getOutputStream());
-                        } catch (Exception e) {
-                            // System.err.println("Destination Socket In err");
-                            try {destinationSocket.close();}catch (Exception ignored) {}
-                        }
-                    },"OUT READ ["+incomingSocket.getRemoteSocketAddress()+"]").start();
+                    });
+
                 }
             } catch (Exception e) {
                 this.setActive(false);
                 this.getServerThread().interrupt();
-                // System.err.println("Common Socket err");
+                System.err.println("Common Socket err");
+                e.printStackTrace();
             }
         },"SOCKET-ACCEPTOR").start();
+    }
+
+    private Socket getNewDS(final InetAddress resolvedAddress, final Integer destPort) throws IOException {
+        return new Socket(resolvedAddress, destPort);
     }
 }
